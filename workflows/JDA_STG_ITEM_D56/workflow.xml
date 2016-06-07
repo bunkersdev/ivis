@@ -1,0 +1,263 @@
+<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_JDA_ITEM_D56" xmlns="uri:oozie:workflow:0.4">
+	<global>
+		<job-xml>${hiveSite}</job-xml>
+		<job-xml>${hbasesite}</job-xml>
+		<configuration>
+			<property>
+				<name>mapreduce.job.queuename</name>
+				<value>${queueName}</value>
+			</property>
+		</configuration>
+	</global>
+	<credentials>
+		<credential name='hcat_creds' type='hcat'>
+			<property>
+				<name>hcat.metastore.uri</name>
+				<value>${metastore}</value>
+			</property>
+			<property>
+				<name>hcat.metastore.principal</name>
+				<value>${metastore_principal}</value>
+			</property>
+		</credential>
+
+		<credential name='hbase' type='hbase'/>
+	</credentials>   
+
+	<start to="fork_sqoop"/>
+
+	<fork name="fork_sqoop">
+		<path start="sqoop_d56_item_no"/>
+		<path start="sqoop_stg_item"/>
+	</fork>
+
+	<action name="sqoop_d56_item_no">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_d56_item_no_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--driver</arg>
+			<arg>oracle.jdbc.driver.OracleDriver</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${stgmgr_schema}.D56_ITEM_NO WHERE $CONDITIONS 
+			</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_d56_item_no_destination}</arg>
+			<arg>-m</arg>
+			<arg>1</arg>
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+
+	<action name="sqoop_stg_item">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_stg_item_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${stgmgr_schema}.STG_ITEM WHERE $CONDITIONS
+			</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_stg_item_destination}</arg>
+			<arg>-m</arg>
+			<arg>1</arg>
+
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+
+	<join name="join_sqoop_merge" to="insert_overwrite_lnd_stg"/>
+
+	<fork name="insert_overwrite_lnd_stg">
+		<path start="clear_stg_d56_and_item"/>
+		<path start="lnd_default_d56_item_no"/>
+		<path start="lnd_default_stg_item"/>
+		<path start="lnd_stg_d56_item_no"/>
+		<path start="lnd_stg_item"/>
+	</fork>
+
+	<action name="clear_stg_d56_and_item">
+		<fs>
+			<delete path="${nameNode}${stg_d56_item_no_staging_location}/*"/>
+			<delete path="${nameNode}${stg_item_staging_location}/*"/>
+		</fs>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The Pig scripts does --> 
+	<action name="lnd_default_d56_item_no" cred="hcat_creds">
+
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/staging/lnd_default_d56_item_no.pig</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The Pig scripts does  -->
+	<action name="lnd_default_stg_item" cred="hcat_creds">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/staging/lnd_default_stg_item.pig</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The Pig scripts does  -->
+	<action name="lnd_stg_d56_item_no" cred="hcat_creds">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/staging/lnd_d56_item_no.pig</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The Pig scripts does  -->
+	<action name="lnd_stg_item" cred="hcat_creds">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/staging/lnd_stg_item.pig</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<join name="join_insert_overwrite_lnd_stg" to="stage_phnx_data_move"/>
+
+	<fork name="stage_phnx_data_move">
+		<path start="stg_phx_d56_item_no"/>
+		<path start="stg_phx_stg_item"/>
+	</fork> 
+
+
+	<!-- The Pig scripts does --> 
+	<action name="stg_phx_d56_item_no" cred="hcat_creds,hbase">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/phoenix/stg_d56_item_no_phx.pig</script>
+			<param>PHX_JAR_LOC=${phoenix_client_jar}</param>
+			<param>PHOENIX_SCHEMA_ENV=${phoenix_schema_env}</param>
+			<param>PHOENIX_HBASE_CLUSTER=${phoenix_hbase_cluster}</param>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_stg_phx_data_move"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The Pig scripts does --> 
+	<action name="stg_phx_stg_item" cred="hcat_creds,hbase">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/phoenix/stg_item_phx.pig</script>
+			<param>PHX_JAR_LOC=${phoenix_client_jar}</param>
+			<param>PHOENIX_SCHEMA_ENV=${phoenix_schema_env}</param>
+			<param>PHOENIX_HBASE_CLUSTER=${phoenix_hbase_cluster}</param>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_stg_phx_data_move"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<join name="join_stg_phx_data_move" to="end"/>
+
+
+	<!-- In the event of failure, send an email to a larger group with some debugging info -->
+	<action name="failureEmail">
+		<email xmlns="uri:oozie:email-action:0.1">
+			<to>${jobFailureEmails}</to>
+			<subject> ${cluster_name} - JOB FAILURE ${wf:id()}</subject>
+			<body>
+                Error message is: [${wf:errorMessage(wf:lastErrorNode())}]
+
+                Oozie job id: ${wf:id()}
+
+                External Job Id is ${wf:actionExternalId(wf:lastErrorNode())}
+
+				Job log location is
+				http://sn01.nonprod.scn:19888/jobhistory/job/${wf:actionExternalId(wf:lastErrorNode())}	
+
+                This is an automatic e-mail generated by the job.
+			</body>
+		</email>
+		<ok to="kill"/>
+		<error to="kill"/>
+	</action>
+
+
+	<kill name="kill">
+		<message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+	</kill>
+
+	<end name="end"/>
+</workflow-app>
+
+

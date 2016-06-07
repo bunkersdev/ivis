@@ -1,0 +1,7 @@
+LOAD_FAILURE_MACRO=/home/moscivisdev/applications/mosc/dev/ivis/scripts/pig/website/load_failure_table.macro
+FIN_ADJ_USR_VALIDATION_MACRO=/home/moscivisdev/applications/mosc/dev/ivis/scripts/pig/website/fin_adj/user_validation_fin_adjustments.macro
+PHX_JAR_LOC=/opt/cloudera/parcels/CDH/jars/piggybank.jar
+DATAFU_JAR_LOC=/opt/cloudera/parcels/CDH/jars/datafu-1.1.0-cdh5.5.1.jar
+PHOENIX_SCHEMA_ENV=IVIS_DEV
+PHOENIX_HBASE_CLUSTER=nn01.nonprod.scn,sn01.nonprod.scn,en02.nonprod.scn
+IVIS_HIVE_DATABASE=mosc_dev_plng_ivis_hive

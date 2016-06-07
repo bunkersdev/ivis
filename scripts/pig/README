@@ -1,0 +1,23 @@
+
+Design  : 
+
+Macros created for business rules in rolling up the data from different sources to fact table for reporting .
+
+Sources : 
+
+1. Upload Plan update      
+2. 
+
+
+Main Script --> .pig
+
+
+Run Pig script Manually from Edge Node :
+
+pig -useHCatalog -m params -f ????.pig
+
+
+
+
+
+

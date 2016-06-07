@@ -1,0 +1,4 @@
+LOAD_FAILURE_MACRO = /home/moscivisdev/ivis/scripts/pig/load_failure_table.macro
+PLN_UPD_USR_VALIDATION_MACRO = /home/moscivisdev/ivis/scripts/pig/pln_upd/user_validation_pln_upd.macro
+PHX_JAR_LOC = /opt/cloudera/parcels/CDH/jars/piggybank.jar
+DATAFU_JAR_LOC = /opt/cloudera/parcels/CDH/jars/datafu-1.1.0-cdh5.5.1.jar

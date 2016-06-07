@@ -1,0 +1,186 @@
+
+<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_DATA_MART_COMMENTARY_F_BACKFILL" xmlns="uri:oozie:workflow:0.5">
+  <global>
+      <job-xml>${WF_APP_DIR}/site_xml/hive-site.xml</job-xml>
+  </global>
+  <credentials>
+    <credential name="hcat" type="hcat">
+      <property>
+        <name>hcat.metastore.uri</name>
+        <value>${hcatmetastoreuri}</value>
+      </property>
+      <property>
+        <name>hcat.metastore.principal</name>
+        <value>${hcatmetastoreprincipal}</value>
+      </property>
+    </credential>
+    <credential name="hive2" type="hive2">
+      <property>
+        <name>hive2.jdbc.url</name>
+        <value>${hive2jdbcurl}</value>
+      </property>
+      <property>
+        <name>hive2.server.principal</name>
+        <value>${hive2serverprincipal}</value>
+      </property>
+    </credential>
+    <credential name="hbase" type="hbase">
+    </credential>
+  </credentials>
+    <start to="START_LOAD_TMP_INV_VISIBILITY"/>
+    <kill name="Kill">
+        <message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+    </kill>
+    <action name="LOAD_TMP_INV_VISI_ACT" cred="hive2">
+        <hive2 xmlns="uri:oozie:hive2-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <jdbc-url>${hive2jdbcurl}</jdbc-url>
+            <script>${WF_APP_DIR}/ivis/scripts/hive/analytics/tmp_inv_visibility_varnc_ACT.sql</script>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>PERIOD=${WF_PERIOD}</param>
+        </hive2>
+        <ok to="END_LOAD_TMP_INV_VISIBILITY"/>
+        <error to="JOB_FAILURE_EMAIL"/>
+    </action>
+    <action name="LOAD_TMP_INV_VISI_FINADJ" cred="hive2">
+        <hive2 xmlns="uri:oozie:hive2-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <jdbc-url>${hive2jdbcurl}</jdbc-url>
+            <script>${WF_APP_DIR}/ivis/scripts/hive/analytics/tmp_inv_visibility_varnc_FINADJ.sql</script>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>PERIOD=${WF_PERIOD}</param>
+        </hive2>
+        <ok to="END_LOAD_TMP_INV_VISIBILITY"/>
+        <error to="email-8346"/>
+    </action>
+    <fork name="START_LOAD_TMP_INV_VISIBILITY">
+        <path start="LOAD_TMP_INV_VISI_ACT" />
+        <path start="LOAD_TMP_INV_VISI_FINADJ" />
+        <path start="LOAD_TMP_INV_VISI_PLNGAP" />
+    </fork>
+    <join name="END_LOAD_TMP_INV_VISIBILITY" to="LOAD_INV_VISIBILITY_VARNC"/>
+    <action name="LOAD_TMP_INV_VISI_PLNGAP" cred="hive2">
+        <hive2 xmlns="uri:oozie:hive2-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <jdbc-url>${hive2jdbcurl}</jdbc-url>
+            <script>${WF_APP_DIR}/ivis/scripts/hive/analytics/tmp_inv_visibility_varnc_PLNGAP.sql</script>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>PERIOD=${WF_PERIOD}</param>
+              <param>UPD_PERIOD=${WF_PRSC_MONTH_2}</param>
+        </hive2>
+        <ok to="END_LOAD_TMP_INV_VISIBILITY"/>
+        <error to="email-16d7"/>
+    </action>
+    <action name="LOAD_INV_VISIBILITY_VARNC" cred="hive2">
+        <hive2 xmlns="uri:oozie:hive2-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <jdbc-url>${hive2jdbcurl}</jdbc-url>
+            <script>${WF_APP_DIR}/ivis/scripts/hive/analytics/inv_visibility_varnc_f.sql</script>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>USER_NAME=${WF_USER_NAME}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>PERIOD=${WF_PERIOD}</param>
+        </hive2>
+        <ok to="LOAD_HBASE_COMMENTARY"/>
+        <error to="email-2611"/>
+    </action>
+    <action name="LOAD_HBASE_COMMENTARY" cred="hcat,hbase">
+        <pig>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+              <job-xml>${WF_APP_DIR}/site_xml//hbase-site.xml</job-xml>
+            <script>${WF_APP_DIR}/ivis/scripts/pig/analytics/inv_visibility_commentary_hive2phnx.pig</script>
+              <param>VARIANCE_THRESHOLD=${WF_VARIANCE_THRESHOLD}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>MONTH=${WF_PERIOD}</param>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>nameNode=${nameNode}</param>
+              <param>WF_APP_DIR=${WF_APP_DIR}</param>
+              <param>HBASE_DATABASE=${WF_HBASE_DATABASE}</param>
+              <param>HBASE_CONFIG=${WF_HBASE_CONFIG}</param>
+        </pig>
+        <ok to="DELETE_PARTITION_HIVE_COMMENTARY"/>
+        <error to="email-88fa"/>
+    </action>
+    
+    <action name="DROP_PARTITION_HIVE_COMMENTARY" cred="hive2">
+        <hive2 xmlns="uri:oozie:hive2-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <jdbc-url>${hive2jdbcurl}</jdbc-url>
+            <script>${WF_APP_DIR}/ivis/scripts/hive/analytics/drop_partition_inv_visibility_commentary_f.sql</script>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>PERIOD=${WF_PERIOD}</param>
+        </hive2>
+        <ok to="LOAD_HBASE2HIVE_COMMENTARY"/>
+        <error to="email-88fa"/>
+    </action>
+    <action name="DELETE_PARTITION_HIVE_COMMENTARY">
+        <shell xmlns="uri:oozie:shell-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <exec>delete_partition_inv_visibility_commentary.sh</exec>
+              <argument>${WF_YEAR}</argument>
+              <argument>${WF_PERIOD}</argument>
+              <argument>${WF_DATA_DIR}</argument>
+            <file>${WF_APP_DIR}/ivis/scripts/shell/analytics/delete_partition_inv_visibility_commentary.sh#delete_partition_inv_visibility_commentary.sh</file>
+              <capture-output/>
+        </shell>
+        <ok to="DROP_PARTITION_HIVE_COMMENTARY"/>
+        <error to="email-88fa"/>
+    </action>
+    <action name="LOAD_HBASE2HIVE_COMMENTARY" cred="hcat,hbase">
+        <pig>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+              <job-xml>${WF_APP_DIR}/site_xml/hbase-site.xml</job-xml>
+            <script>${WF_APP_DIR}/ivis/scripts/pig/analytics/inv_visibility_commentary_phnx2hive.pig</script>
+              <param>DATABASE=${WF_DATABASE}</param>
+              <param>YEAR=${WF_YEAR}</param>
+              <param>PERIOD=${WF_PERIOD}</param>
+              <param>WF_APP_DIR=${WF_APP_DIR}</param>
+              <param>nameNode=${nameNode}</param>
+              <param>HBASE_DATABASE=${WF_HBASE_DATABASE}</param>
+              <param>HBASE_CONFIG=${WF_HBASE_CONFIG}</param>
+        </pig>
+        <ok to="HBASE_COMMENTARY_CLEANUP"/>
+        <error to="email-88fa"/>
+    </action>
+        <action name="HBASE_COMMENTARY_CLEANUP">
+        <shell xmlns="uri:oozie:shell-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <exec>phx_commentary_cleanup.sh</exec>
+              <argument>${cluster_name}</argument>
+              <argument>${WF_HBASE_CONFIG}</argument>
+              <argument>${WF_HBASE_DATABASE}</argument>
+              <argument>INV_VISIBILITY_COMMENTARY_F</argument>
+              <argument>where DELETE_FLAG='Y'</argument>
+              <argument>${user_name}</argument>
+            <file>${WF_APP_DIR}/ivis/scripts/shell/phoenix/phx_commentary_cleanup.sh#${WF_APP_DIR}/ivis/scripts/shell/phoenix/phx_commentary_cleanup.sh</file>
+        </shell>
+        <ok to="End"/>
+        <error to="JOB_FAILURE_EMAIL"/>
+    </action>
+    <action name="JOB_FAILURE_EMAIL">
+     <email xmlns="uri:oozie:email-action:0.1">
+            <to>${jobFailureEmails}</to>
+            <subject>${cluster_name} - JOB FAILURE ${wf:name()}</subject>
+            <body>Error message is: [${wf:errorMessage(wf:lastErrorNode())}]
+Oozie Workflow Name: ${wf:name()}
+External Job Id is ${wf:actionExternalId(wf:lastErrorNode())}
+This is an automatic e-mail generated by the job.</body>
+        </email>
+        <ok to="Kill"/>
+        <error to="Kill"/>
+    </action>
+    <end name="End"/>
+</workflow-app>

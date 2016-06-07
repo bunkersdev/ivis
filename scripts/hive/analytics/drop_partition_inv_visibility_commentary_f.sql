@@ -1,0 +1,1 @@
+alter table ${DATABASE}.inv_visibility_commentary_f drop partition (year=${YEAR},period=${PERIOD})

@@ -1,0 +1,13 @@
+
+
+
+
+Useful Hive Commands:
+
+Display the Tables created . 
+
+hive -e "describe cae.<TABLE_NAME>";
+hive -e "show create table <schemaname>.<Table Name>"
+
+
+

@@ -1,0 +1,20 @@
+<coordinator-app name="coord_ivis_web_${jobType}" frequency="60"
+                 start="${startTime}" end="${endTime}" timezone="America/Chicago"
+                 xmlns="uri:oozie:coordinator:0.2">
+    <controls>
+        <timeout>10</timeout>
+        <concurrency>1</concurrency>
+        <execution>LAST_ONLY</execution>
+    </controls>
+    <action>
+        <workflow>
+            <app-path>${wf_app_path}/${workflow_folder}/${workflow_name}.xml</app-path>
+                <configuration>
+                    <property>
+                       <name>timeStamp</name>
+                       <value>${coord:formatTime(coord:nominalTime(), 'yyyy-MM-dd')}</value>
+                    </property>
+                </configuration>
+        </workflow>
+    </action>
+</coordinator-app>

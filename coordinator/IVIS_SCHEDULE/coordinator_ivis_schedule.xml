@@ -1,0 +1,30 @@
+<coordinator-app name="COORDINATOR_[[WF_ENV]]_IVIS_SCHEDULE" frequency="${coord:days(1)}"
+                 start="${ivisstartTime}" end="${ivisendTime}" timezone="America/Chicago"
+                 xmlns="uri:oozie:coordinator:0.2">
+    <controls>
+        <timeout>10</timeout>
+        <concurrency>1</concurrency>
+        <execution>LAST_ONLY</execution>
+    </controls>
+    <action>
+        <workflow>
+            <app-path>${WF_APP_DIR}/ivis/workflows/MOSC_IVIS_SCHEDULE/workflow.xml</app-path>
+                <configuration>
+                    <property>
+                       <name>timeStamp</name>
+                       <value>${coord:formatTime(coord:nominalTime(), 'yyyy-MM-dd')}</value>
+                       <name>WF_YEAR</name>
+                       <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1,'MONTH'), "YYYY")}</value>
+                       <name>WF_PERIOD</name>
+                       <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1,'MONTH'), "MM")}</value>
+                       <name>WF_EFF_YEAR</name>
+                       <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1,'DAY'), "YYYY")}</value>
+                       <name>WF_EFF_PERIOD</name>
+                       <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1,'DAY'), "MM")}</value>
+                       <name>WF_CURR_PRSC_MONTH</name>
+                       <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), 0,'MONTH'), "MM")}</value>
+                    </property>
+                </configuration>
+        </workflow>
+    </action>
+</coordinator-app>

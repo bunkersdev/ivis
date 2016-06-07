@@ -1,0 +1,253 @@
+<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_JDA_CALENDAR_ITEM_TCGM" xmlns="uri:oozie:workflow:0.4">
+	<global>
+		<job-xml>${hiveSite}</job-xml>
+		<job-xml>${hbasesite}</job-xml>
+		<configuration>
+			<property>
+				<name>mapreduce.job.queuename</name>
+				<value>${queueName}</value>
+			</property>
+		</configuration>
+	</global>
+	<credentials>
+		<credential name='hcat_creds' type='hcat'>
+			<property>
+				<name>hcat.metastore.uri</name>
+				<value>${metastore}</value>
+			</property>
+			<property>
+				<name>hcat.metastore.principal</name>
+				<value>${metastore_principal}</value>
+			</property>
+		</credential>
+
+		<credential name='hbase' type='hbase'/>
+	</credentials>   
+
+	<start to="fork_sqoop"/>
+
+
+	<fork name="fork_sqoop">
+		<path start="sqoop_calendar_d"/>
+		<path start="sqoop_stg_item_attr_common"/>
+		<path start="sqoop_stg_tcgm"/>
+	</fork>
+
+	<action name="sqoop_calendar_d">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_calendar_d_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${kpi_schema}.calendar_d WHERE $CONDITIONS
+			</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_calendar_d_destination}</arg>
+			<arg>-m</arg>
+			<arg>1</arg>
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<action name="sqoop_stg_item_attr_common">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_stg_item_attr_common_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${stgmgr_schema}.stg_item_attr_common WHERE $CONDITIONS 
+			</arg>
+			<arg>--split-by</arg>
+			<arg>ITEM_NO</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_stg_item_attr_common_destination}</arg>
+			<arg>-m</arg>
+			<arg>6</arg>
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<action name="sqoop_stg_tcgm">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_stg_tcgm_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${stgmgr_schema}.stg_tcgm WHERE $CONDITIONS
+			</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_stg_tcgm_destination}</arg>
+			<arg>-m</arg>
+			<arg>1</arg>
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<join name="join_sqoop_merge" to="insert_overwrite_lnd_stg"/>
+
+	<fork name="insert_overwrite_lnd_stg">
+		<path start="insert_overwrite_calendar_d"/>
+		<path start="insert_overwrite_stg_item_attr_common"/>
+	</fork>
+
+
+	<!-- The hive scripts does  insert overwrite to tables in staging area-->
+	<action name="insert_overwrite_calendar_d" cred="hcat_creds">
+		<hive xmlns="uri:oozie:hive-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${calendar_d_staging_location}/*"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+			<script>${hivescriptsdirectory}/staging/insert_overwrite_lnd_stg.hql</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+			<param>STAGE_TABLE=${calendar_d_stg_tablename}</param>
+			<param>LANDING_TABLE=${calendar_d_lnd_tablename}</param>
+		</hive>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The hive scripts does  insert overwrite to tables in staging area-->
+	<action name="insert_overwrite_stg_item_attr_common" cred="hcat_creds">
+		<hive xmlns="uri:oozie:hive-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${stg_item_attr_common_staging_location}/*"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+			<script>${hivescriptsdirectory}/staging/insert_overwrite_lnd_stg.hql</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+			<param>STAGE_TABLE=${stg_item_attr_common_stg_tablename}</param>
+			<param>LANDING_TABLE=${stg_item_attr_common_lnd_tablename}</param>
+		</hive>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+
+	<join name="join_insert_overwrite_lnd_stg" to="end"/>
+
+	<!-- In the event of failure, send an email to a larger group with some debugging info -->
+	<action name="failureEmail">
+		<email xmlns="uri:oozie:email-action:0.1">
+			<to>${jobFailureEmails}</to>
+			<subject> ${cluster_name} - JOB FAILURE ${wf:id()}</subject>
+			<body>
+                Error message is: [${wf:errorMessage(wf:lastErrorNode())}]
+
+                Oozie job id: ${wf:id()}
+
+                External Job Id is ${wf:actionExternalId(wf:lastErrorNode())}
+
+				Job log location is
+				http://sn01.nonprod.scn:19888/jobhistory/job/${wf:actionExternalId(wf:lastErrorNode())}	
+
+                This is an automatic e-mail generated by the job.
+			</body>
+		</email>
+		<ok to="kill"/>
+		<error to="kill"/>
+	</action>
+
+
+	<kill name="kill">
+		<message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+	</kill>
+
+	<end name="end"/>
+</workflow-app>
+

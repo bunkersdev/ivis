@@ -1,0 +1,25 @@
+<bundle-app name='BUNDLE_[[WF_ENV]]_IVIS_SCHEDULE' xmlns='uri:oozie:bundle:0.2'>
+		<parameters>
+    	<property><name>coord_app_path</name></property>
+      	<property><name>start</name></property>
+      	<property><name>end</name></property>
+  	</parameters>
+    
+    <controls>
+        <kick-off-time>${bundleKickOffTime}</kick-off-time>
+    </controls>
+
+	<coordinator name='coord_ivis_web_pln_upd'>
+				<app-path>${coord_app_path}/IVIS_SCHEDULE/coordinator.xml</app-path>
+				<configuration>
+						<property><name>startTime</name><value>${ivisstartTime}</value></property>
+						<property><name>endTime</name><value>${ivisendTime}</value></property>
+						<property><name>cluster</name><value>${cluster}</value></property>
+						<property><name>jobType</name><value>pln_upd</value></property>
+						<property><name>workflow_folder</name><value>WF_WEB_PLN_UPD</value></property>
+						<property><name>workflow_name</name><value>wf_web_pln_upd</value></property>
+				 </configuration>
+	</coordinator>
+	
+			
+</bundle-app>

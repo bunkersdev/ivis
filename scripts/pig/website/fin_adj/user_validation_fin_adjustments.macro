@@ -1,0 +1,97 @@
+DEFINE user_validation(upload_data) returns all_valid_users {
+lnd_usr_permission_master = LOAD '${IVIS_HIVE_DATABASE}.lnd_usr_permission_master' USING org.apache.hive.hcatalog.pig.HCatLoader();
+lnd_scp_web_usr_access_vw = LOAD '${IVIS_HIVE_DATABASE}.lnd_scp_web_usr_access_vw' USING org.apache.hive.hcatalog.pig.HCatLoader();
+
+
+get_dataset = FOREACH $upload_data GENERATE 
+UPPER(affiliate_code) as affiliate_code,
+UPPER(type) as type,
+year as year,
+month as month,
+UPPER(group_desc) as group_desc,
+adjusted_value_usd as adjusted_value_usd,
+file_name as file_name,
+upload_id as upload_id,
+comment as comment,
+created_by as created_by,
+created_date as created_date;
+
+--join_created_by = join upload_data by created_by,lnd_usr_permission_master by usr_scm_id;
+join_created_by = join get_dataset by created_by,lnd_usr_permission_master by usr_scm_id ;
+
+filter_hq_user = filter join_created_by by headquater_user=='Y';
+
+filter_nonhq_user = filter join_created_by by headquater_user=='N';
+
+hq_user =  FOREACH filter_hq_user GENERATE
+            get_dataset::affiliate_code as affiliate_code,
+                        get_dataset::type as type,
+                        get_dataset::year as year,
+						get_dataset::month as month,
+                        get_dataset::group_desc as group_desc,
+                        get_dataset::upload_id as upload_id,
+                        get_dataset::adjusted_value_usd as adjusted_value_usd,
+						get_dataset::file_name as file_name,
+                        get_dataset::comment as comment,
+                        get_dataset::created_by as created_by,
+                        get_dataset::created_date as created_date,
+                        lnd_usr_permission_master::usr_eml_id as usr_eml_id;
+
+
+nonhq_user  = FOREACH filter_nonhq_user GENERATE
+						get_dataset::affiliate_code as affiliate_code,
+                        get_dataset::type as type,
+                        get_dataset::year as year,
+                        get_dataset::month as month,
+                        get_dataset::group_desc as group_desc,
+                        get_dataset::upload_id as upload_id,
+                        get_dataset::adjusted_value_usd as adjusted_value_usd,
+			            get_dataset::file_name as file_name,
+                        get_dataset::comment as comment,
+                        get_dataset::created_by as created_by,
+                        get_dataset::created_date as created_date,
+                        lnd_usr_permission_master::usr_eml_id as usr_eml_id;
+
+
+filter_screen = FILTER lnd_scp_web_usr_access_vw by (screen_name=='MAINTAIN FINANCIAL ADJUSTMENTS') or (screen_name is NULL) or (screen_name=='');
+
+join_usr_access_vw = join nonhq_user by (affiliate_code,created_by) LEFT OUTER, filter_screen by (loc,usr_scm_id);
+
+filter_usr_failed = filter join_usr_access_vw by ((filter_screen::loc is NULL) or (filter_screen::loc==''))  and ((filter_screen::usr_scm_id is NULL) or (filter_screen::usr_scm_id==''));
+filter_usr_passed = filter join_usr_access_vw by ((filter_screen::loc is NOT NULL) or (filter_screen::loc!='')) and ((filter_screen::usr_scm_id is NOT NULL) or (filter_screen::usr_scm_id!=''));
+
+load_fail_rec  = FOREACH filter_usr_failed GENERATE
+nonhq_user::upload_id as upload_id,
+nonhq_user::affiliate_code as affiliate_code,
+nonhq_user::type as type,
+nonhq_user::year as year,
+nonhq_user::month as month,
+'NULL' as sap_material_no,
+nonhq_user::group_desc as group_desc,
+nonhq_user::file_name as file_name,
+nonhq_user::usr_eml_id as usr_eml_id,
+nonhq_user::created_date as created_date,
+nonhq_user::created_by as created_by;
+
+
+get_headquater_usr  = FOREACH filter_usr_passed GENERATE
+                        nonhq_user::affiliate_code as affiliate_code,
+                        nonhq_user::type as type,
+                        nonhq_user::year as year,
+			nonhq_user::month as month,
+		        nonhq_user::group_desc as group_desc,
+                        nonhq_user::upload_id as upload_id,
+                        nonhq_user::adjusted_value_usd as adjusted_value_usd,
+                        nonhq_user::file_name as file_name,
+                        nonhq_user::comment as comment,
+                        nonhq_user::created_by as created_by,
+                        nonhq_user::created_date as created_date,
+                        nonhq_user::usr_eml_id as usr_eml_id;
+
+
+load_failed_records(load_fail_rec,'Failed for user permission and access');
+
+$all_valid_users = union hq_user,get_headquater_usr;
+
+};
+

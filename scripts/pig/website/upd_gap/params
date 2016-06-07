@@ -1,0 +1,3 @@
+LOAD_FAILURE_MACRO = /home/moscivisdev/ivis/scripts/pig/load_failure_table.macro
+UPD_GAP_USR_VALIDATION_MACRO = /home/moscivisdev/ivis/scripts/pig/upd_gap/user_validation_upd_gap.macro
+PHX_JAR_LOC = /opt/cloudera/parcels/CDH/jars/piggybank.jar

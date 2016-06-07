@@ -1,0 +1,335 @@
+<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_JDA_LOC_BSNC_EXCHANGE" xmlns="uri:oozie:workflow:0.4">
+	<global>
+		<job-xml>${hiveSite}</job-xml>
+		<job-xml>${hbasesite}</job-xml>
+		<configuration>
+			<property>
+				<name>mapreduce.job.queuename</name>
+				<value>${queueName}</value>
+			</property>
+		</configuration>
+	</global>
+	<credentials>
+		<credential name='hcat_creds' type='hcat'>
+			<property>
+				<name>hcat.metastore.uri</name>
+				<value>${metastore}</value>
+			</property>
+			<property>
+				<name>hcat.metastore.principal</name>
+				<value>${metastore_principal}</value>
+			</property>
+		</credential>
+
+		<credential name='hbase' type='hbase'/>
+	</credentials>   
+
+	<start to="fork_sqoop"/>
+
+
+	<fork name="fork_sqoop">
+		<path start="sqoop_stg_loc_hierarchy"/>
+		<path start="sqoop_prcs_bsns_day_cal"/>
+		<path start="sqoop_exchange_rate_d"/>
+	</fork>
+
+
+	<action name="sqoop_stg_loc_hierarchy">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_stg_loc_hierarchy_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   select * from ${stgmgr_schema}.stg_loc_hierarchy where level_10_code in (select level_10_code from (select level_10_code,count(*) from ${stgmgr_schema}.stg_loc_hierarchy  group by level_10_code having count(*) = 1 )) union select * from ${stgmgr_schema}.stg_loc_hierarchy where level_10_code in (select level_10_code from (select level_10_code,count(*) from ${stgmgr_schema}.stg_loc_hierarchy   group by level_10_code having count(*) > 1)) and division in('GPO') union select * from ${stgmgr_schema}.stg_loc_hierarchy where level_10_code='M55' and level_2_desc='PPD' AND $CONDITIONS
+			</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_stg_loc_hierarchy_destination}</arg>
+			<arg>-m</arg>
+			<arg>1</arg>
+
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<action name="sqoop_prcs_bsns_day_cal">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_prcs_bsns_day_cal_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${stgmgr_schema}.PRCS_BSNS_DAY_CAL WHERE $CONDITIONS
+			</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_prcs_bsns_day_cal_destination}</arg>
+			<arg>-m</arg>
+			<arg>1</arg>
+
+
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<action name="sqoop_exchange_rate_d">
+		<sqoop xmlns="uri:oozie:sqoop-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${sqoop_exchange_rate_d_destination}"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+
+			<arg>import</arg>
+			<arg>--connect</arg>
+			<arg>${ivisJdbcConnect}</arg>
+			<arg>--username</arg>
+			<arg>${ivisSqoopuser}</arg>
+			<arg>--password-file</arg>
+			<arg>${ivisPasswordfile}</arg>
+			<arg>--query</arg>
+			<arg>
+                   SELECT * FROM ${kpi_schema}.EXCHANGE_RATE_D WHERE MAJOR_BUSINESS='Pharma' AND $CONDITIONS
+			</arg>
+			<arg>--fields-terminated-by</arg>
+			<arg>\001</arg>
+			<arg>--split-by</arg>
+			<arg>EXCHANGE_RATE_F_PK</arg>
+			<arg>--compression-codec</arg>
+			<arg>org.apache.hadoop.io.compress.GzipCodec</arg>
+			<arg>--null-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--null-non-string</arg>
+			<arg>'\\N'</arg>
+			<arg>--target-dir</arg>
+			<arg>${sqoop_exchange_rate_d_destination}</arg>
+			<arg>-m</arg>
+			<arg>6</arg>
+		</sqoop>
+		<ok to="join_sqoop_merge"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<join name="join_sqoop_merge" to="insert_overwrite_lnd_stg"/>
+
+	<fork name="insert_overwrite_lnd_stg">
+		<path start="insert_overwrite_stg_loc_hierarchy"/>
+		<path start="insert_overwrite_prcs_bsns_day_cal"/>
+		<path start="insert_overwrite_exchange_rate_d"/>
+	</fork>
+
+	<!-- The hive scripts does  insert overwrite to tables in staging area-->
+	<action name="insert_overwrite_stg_loc_hierarchy" cred="hcat_creds">
+		<hive xmlns="uri:oozie:hive-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${stg_loc_hierarchy_staging_location}/*"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+			<script>${hivescriptsdirectory}/staging/insert_overwrite_stg_loc_hierarchy.hql</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+			<param>STAGE_TABLE=${stg_loc_hierarchy_stg_tablename}</param>
+			<param>LANDING_TABLE=${stg_loc_hierarchy_lnd_tablename}</param>
+		</hive>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<!-- The hive scripts does  insert overwrite to tables in staging area-->
+	<action name="insert_overwrite_prcs_bsns_day_cal" cred="hcat_creds">
+		<hive xmlns="uri:oozie:hive-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${prcs_bsns_day_cal_staging_location}/*"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+			<script>${hivescriptsdirectory}/staging/insert_overwrite_lnd_stg.hql</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+			<param>STAGE_TABLE=${prcs_bsns_day_cal_stg_tablename}</param>
+			<param>LANDING_TABLE=${prcs_bsns_day_cal_lnd_tablename}</param>
+		</hive>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+
+	<!-- The hive scripts does  insert overwrite to tables in staging area-->
+	<action name="insert_overwrite_exchange_rate_d" cred="hcat_creds">
+		<hive xmlns="uri:oozie:hive-action:0.2">
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<prepare>
+				<delete path="${nameNode}${exchange_rate_d_staging_location}/*"/>
+			</prepare>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+			</configuration>
+			<script>${hivescriptsdirectory}/staging/insert_overwrite_exchange_rate_d.hql</script>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+			<param>STAGE_TABLE=${exchange_rate_d_stg_tablename}</param>
+			<param>LANDING_TABLE=${exchange_rate_d_lnd_tablename}</param>
+		</hive>
+		<ok to="join_insert_overwrite_lnd_stg"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<join name="join_insert_overwrite_lnd_stg" to="stage_phnx_data_move"/>
+
+
+	<fork name="stage_phnx_data_move">
+		<path start="stg_phx_stg_loc_hierarchy"/>
+		<path start="stg_phx_prcs_bsns_day_cal"/>
+		<path start="stg_phx_exchange_rate_d"/>
+	</fork> 
+
+
+	<!-- The Pig scripts does --> 
+	<action name="stg_phx_stg_loc_hierarchy" cred="hcat_creds,hbase">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/phoenix/stg_loc_hierarchy_phx.pig</script>
+			<param>PHX_JAR_LOC=${phoenix_client_jar}</param>
+			<param>PHOENIX_SCHEMA_ENV=${phoenix_schema_env}</param>
+			<param>PHOENIX_HBASE_CLUSTER=${phoenix_hbase_cluster}</param>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_stg_phx_data_move"/>
+		<error to="failureEmail"/>
+	</action>
+
+
+	<!-- The Pig scripts does --> 
+	<action name="stg_phx_prcs_bsns_day_cal" cred="hcat_creds,hbase">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/phoenix/prcs_bsns_day_cal.pig</script>
+			<param>PHX_JAR_LOC=${phoenix_client_jar}</param>
+			<param>PHOENIX_SCHEMA_ENV=${phoenix_schema_env}</param>
+			<param>PHOENIX_HBASE_CLUSTER=${phoenix_hbase_cluster}</param>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_stg_phx_data_move"/>
+		<error to="failureEmail"/>
+	</action>
+
+
+	<!-- The Pig scripts does --> 
+	<action name="stg_phx_exchange_rate_d" cred="hcat_creds,hbase">
+		<pig>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<script>${pigscriptsdirectory}/phoenix/exchange_rate_d_phx.pig</script>
+			<param>PHX_JAR_LOC=${phoenix_client_jar}</param>
+			<param>PHOENIX_SCHEMA_ENV=${phoenix_schema_env}</param>
+			<param>PHOENIX_HBASE_CLUSTER=${phoenix_hbase_cluster}</param>
+			<param>IVIS_HIVE_DATABASE=${ivis_hive_database}</param>
+		</pig>
+		<ok to="join_stg_phx_data_move"/>
+		<error to="failureEmail"/>
+	</action>
+
+	<join name="join_stg_phx_data_move" to="end"/>
+
+	<!-- In the event of failure, send an email to a larger group with some debugging info -->
+	<action name="failureEmail">
+		<email xmlns="uri:oozie:email-action:0.1">
+			<to>${jobFailureEmails}</to>
+			<subject> ${cluster_name} - JOB FAILURE ${wf:id()}</subject>
+			<body>
+                Error message is: [${wf:errorMessage(wf:lastErrorNode())}]
+
+                Oozie job id: ${wf:id()}
+
+                External Job Id is ${wf:actionExternalId(wf:lastErrorNode())}
+
+				Job log location is
+				http://sn01.nonprod.scn:19888/jobhistory/job/${wf:actionExternalId(wf:lastErrorNode())}	
+
+                This is an automatic e-mail generated by the job.
+			</body>
+		</email>
+		<ok to="kill"/>
+		<error to="kill"/>
+	</action>
+
+
+	<kill name="kill">
+		<message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+	</kill>
+
+	<end name="end"/>
+</workflow-app>
+

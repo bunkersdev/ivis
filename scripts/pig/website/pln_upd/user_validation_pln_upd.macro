@@ -1,0 +1,137 @@
+DEFINE user_validation(upload_data) returns all_valid_users {
+lnd_usr_permission_master = LOAD '${IVIS_HIVE_DATABASE}.lnd_usr_permission_master' USING org.apache.hive.hcatalog.pig.HCatLoader();
+lnd_scp_web_usr_access_vw = LOAD '${IVIS_HIVE_DATABASE}.lnd_scp_web_usr_access_vw' USING org.apache.hive.hcatalog.pig.HCatLoader();
+
+
+get_dataset = FOREACH $upload_data GENERATE 
+UPPER(affiliate_code) as affiliate_code,
+UPPER(type) as type,
+year as year,
+sap_material_no as sap_material_no,
+upload_id as upload_id,
+units_jan as units_jan,
+units_feb as units_feb,
+units_mar as units_mar,
+units_apr as units_apr,
+units_may as units_may,
+units_jun as units_jun,
+units_jul as units_jul,
+units_aug as units_aug,
+units_sep as units_sep,
+units_oct as units_oct,
+units_nov as units_nov,
+units_dec as units_dec,
+file_name as file_name,
+comment as comment,
+created_by as created_by,
+created_date as created_date;
+  
+
+--join_created_by = join upload_data by created_by,lnd_usr_permission_master by usr_scm_id;
+join_created_by = join get_dataset by created_by,lnd_usr_permission_master by usr_scm_id  using 'replicated';
+
+filter_hq_user = filter join_created_by by UPPER(headquater_user)=='Y';
+
+filter_nonhq_user = filter join_created_by by UPPER(headquater_user)=='N';
+
+hq_user =  FOREACH filter_hq_user GENERATE
+            get_dataset::affiliate_code as affiliate_code,
+                        get_dataset::type as type,
+                        get_dataset::year as year,
+                        get_dataset::sap_material_no as sap_material_no,
+                        get_dataset::upload_id as upload_id,
+                        get_dataset::units_jan as units_jan,
+                        get_dataset::units_feb as units_feb,
+                        get_dataset::units_mar as units_mar,
+                        get_dataset::units_apr as units_apr,
+                        get_dataset::units_may as units_may,
+                        get_dataset::units_jun as units_jun,
+                        get_dataset::units_jul as units_jul,
+                        get_dataset::units_aug as units_aug,
+                        get_dataset::units_sep as units_sep,
+                        get_dataset::units_oct as units_oct,
+                        get_dataset::units_nov as units_nov,
+                        get_dataset::units_dec as units_dec,
+						get_dataset::file_name as file_name,
+                        get_dataset::comment as comment,
+                        get_dataset::created_by as created_by,
+                        get_dataset::created_date as created_date,
+                        lnd_usr_permission_master::usr_eml_id as usr_eml_id;
+
+
+nonhq_user  = FOREACH filter_nonhq_user GENERATE
+            get_dataset::affiliate_code as affiliate_code,
+                        get_dataset::type as type,
+                        get_dataset::year as year,
+                        get_dataset::sap_material_no as sap_material_no,
+                        get_dataset::upload_id as upload_id,
+                        get_dataset::units_jan as units_jan,
+                        get_dataset::units_feb as units_feb,
+                        get_dataset::units_mar as units_mar,
+                        get_dataset::units_apr as units_apr,
+                        get_dataset::units_may as units_may,
+                        get_dataset::units_jun as units_jun,
+                        get_dataset::units_jul as units_jul,
+                        get_dataset::units_aug as units_aug,
+                        get_dataset::units_sep as units_sep,
+                        get_dataset::units_oct as units_oct,
+                        get_dataset::units_nov as units_nov,
+                        get_dataset::units_dec as units_dec,
+						get_dataset::file_name as file_name,
+                        get_dataset::comment as comment,
+                        get_dataset::created_by as created_by,
+                        get_dataset::created_date as created_date,
+                        lnd_usr_permission_master::usr_eml_id as usr_eml_id;
+						
+filter_screen = FILTER lnd_scp_web_usr_access_vw by (screen_name=='MAINTAIN ANNUAL FINANCIAL PLAN AND UPDATE') or (screen_name is NULL) or (screen_name=='');
+
+join_usr_access_vw = join nonhq_user by (affiliate_code,created_by) LEFT OUTER, filter_screen by (loc,usr_scm_id)  using 'replicated';;
+
+filter_usr_failed = filter join_usr_access_vw by ((filter_screen::loc is NULL) or (filter_screen::loc==''))  and ((filter_screen::usr_scm_id is NULL) or (filter_screen::usr_scm_id==''));
+filter_usr_passed = filter join_usr_access_vw by ((filter_screen::loc is NOT NULL) or (filter_screen::loc!='')) and ((filter_screen::usr_scm_id is NOT NULL) or (filter_screen::usr_scm_id!=''));
+
+get_headquater_usr_failed  = FOREACH filter_usr_failed GENERATE
+nonhq_user::upload_id as upload_id,
+nonhq_user::affiliate_code as affiliate_code,
+nonhq_user::type as type,
+nonhq_user::year as year,
+'$current_month' as month,
+nonhq_user::sap_material_no as sap_material_no,
+'NULL' as group_desc,
+nonhq_user::file_name as file_name,
+nonhq_user::usr_eml_id as usr_eml_id,
+nonhq_user::created_date as created_date,
+nonhq_user::created_by as created_by;
+
+
+get_headquater_usr  = FOREACH filter_usr_passed GENERATE
+                        nonhq_user::affiliate_code as affiliate_code,
+                        nonhq_user::type as type,
+                        nonhq_user::year as year,
+                        nonhq_user::sap_material_no as sap_material_no,
+                        nonhq_user::upload_id as upload_id,
+                        nonhq_user::units_jan as units_jan,
+                        nonhq_user::units_feb as units_feb,
+                        nonhq_user::units_mar as units_mar,
+                        nonhq_user::units_apr as units_apr,
+                        nonhq_user::units_may as units_may,
+                        nonhq_user::units_jun as units_jun,
+                        nonhq_user::units_jul as units_jul,
+                        nonhq_user::units_aug as units_aug,
+                        nonhq_user::units_sep as units_sep,
+                        nonhq_user::units_oct as units_oct,
+                        nonhq_user::units_nov as units_nov,
+                        nonhq_user::units_dec as units_dec,
+						nonhq_user::file_name as file_name,
+                        nonhq_user::comment as comment,
+                        nonhq_user::created_by as created_by,
+                        nonhq_user::created_date as created_date,
+                        nonhq_user::usr_eml_id as usr_eml_id;
+
+
+load_failed_records(get_headquater_usr_failed,'<PLN_UPD> - Failed for user permission and access ');
+
+$all_valid_users = union hq_user,get_headquater_usr;
+};
+
+

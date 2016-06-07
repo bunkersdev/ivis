@@ -1,0 +1,20 @@
+DEFINE load_failed_records(validation_failed_dataset,failure_message) RETURNS void{
+
+store_aff_code_fail_records = FOREACH $validation_failed_dataset GENERATE 
+upload_id as upload_id,
+affiliate_code as affiliate_code,
+type as type,
+year as year,
+(month=='$current_month'?'NULL':month) as month,
+(sap_material_no IS NULL?'NULL':sap_material_no) as sap_material_no,	
+(group_desc IS NULL?'NULL':group_desc) as group_desc,
+file_name as file_name,
+usr_eml_id as usr_eml_id,
+'$failure_message' as  error_message,
+created_date as created_date,
+created_by as created_by,
+'Y' as delete_flag ;
+
+STORE store_aff_code_fail_records INTO 'hbase://${PHOENIX_SCHEMA_ENV}.UPLOAD_FAILURE_DETAILS' USING  org.apache.phoenix.pig.PhoenixHBaseStorage('${PHOENIX_HBASE_CLUSTER}','-batchSize 5000');
+
+};

@@ -1,0 +1,2 @@
+PHX_JAR_LOC=/home/moscdev/phoenix/jars/phoenix-1.2.0-client.jar
+{PHOENIX_SCHEMA_ENV=IVIS_DEV
