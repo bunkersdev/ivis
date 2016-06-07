@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_BACKFILL" xmlns="uri:oozie:workflow:0.5">
+<workflow-app name="WF_MOSC_DEV_IVIS_BACKFILL" xmlns="uri:oozie:workflow:0.5">
   <credentials>
     <credential name="hive2" type="hive2">
       <property>

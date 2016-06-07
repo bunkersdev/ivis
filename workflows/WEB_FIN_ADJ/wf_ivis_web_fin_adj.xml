@@ -71,7 +71,9 @@
 		 <argument>${UPLOAD_FIN_ADJ}</argument>
 		 <argument>${phoenix_schema_env}</argument>
 		 <argument>${phoenix_hbase_cluster}</argument>
-		 <file>${shellscriptsdirectory}/website/email.sh#email.sh</file>
+	          <argument>${cluster_name}</argument>
+	          <argument>${user.name}</argument>
+        	 <file>${shellscriptsdirectory}/website/email.sh#email.sh</file>
         </shell>
         <ok to="update_summary_processed_fin_adj"/>
         <error to="failureEmail"/>

@@ -1,5 +1,5 @@
 
-<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_DATA_MART_COMMENTARY_F" xmlns="uri:oozie:workflow:0.5">
+<workflow-app name="WF_MOSC_DEV_IVIS_DATA_MART_COMMENTARY_F" xmlns="uri:oozie:workflow:0.5">
   <global>
       <job-xml>${WF_APP_DIR}/site_xml/hive-site.xml</job-xml>
   </global>

@@ -70,7 +70,9 @@
 		  <argument>${UPLOAD_PLAN_UPD_GAP}</argument>
 		  <argument>${phoenix_schema_env}</argument>
 		  <argument>${phoenix_hbase_cluster}</argument>
-		 <file>${shellscriptsdirectory}/website/email.sh#email.sh</file>
+                  <argument>${cluster_name}</argument>
+                  <argument>${user.name}</argument>
+        	 <file>${shellscriptsdirectory}/website/email.sh#email.sh</file>
         </shell>
         <ok to="update_summary_processed_upd_gap"/>
         <error to="failureEmail"/>

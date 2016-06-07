@@ -1,4 +1,4 @@
-<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_JDA_CALENDAR_ITEM_TCGM" xmlns="uri:oozie:workflow:0.4">
+<workflow-app name="WF_MOSC_DEV_IVIS_JDA_CALENDAR_ITEM_TCGM" xmlns="uri:oozie:workflow:0.4">
 	<global>
 		<job-xml>${hiveSite}</job-xml>
 		<job-xml>${hbasesite}</job-xml>

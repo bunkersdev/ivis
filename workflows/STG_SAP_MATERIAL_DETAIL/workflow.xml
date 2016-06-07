@@ -1,5 +1,5 @@
 
-<workflow-app name="MOSC_[[WF_ENV]]_IVIS_STG_MAT_DET" xmlns="uri:oozie:workflow:0.5">
+<workflow-app name="MOSC_DEV_IVIS_STG_MAT_DET" xmlns="uri:oozie:workflow:0.5">
   <global>
       <job-xml>${WF_APP_DIR}/site_xml/hive-site.xml</job-xml>
   </global>

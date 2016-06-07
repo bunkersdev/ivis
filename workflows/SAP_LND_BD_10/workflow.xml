@@ -1,5 +1,5 @@
 
-<workflow-app name="WF_MOSC_[[WF_ENV]]_IVIS_SAP_LND_BD_10" xmlns="uri:oozie:workflow:0.5">
+<workflow-app name="WF_MOSC_DEV_IVIS_SAP_LND_BD_10" xmlns="uri:oozie:workflow:0.5">
     <start to="LOAD_ONHAND_MTHLY"/>
     <kill name="Kill">
         <message>Action failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
